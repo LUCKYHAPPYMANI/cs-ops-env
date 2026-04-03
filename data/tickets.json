@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "message": "I want a refund, product is broken",
+    "sentiment": "angry",
+    "urgency": "high",
+    "category": "refund",
+    "sla_deadline": 3,
+    "customer_history": 5
+  },
+  {
+    "id": 2,
+    "message": "How to reset password?",
+    "sentiment": "neutral",
+    "urgency": "low",
+    "category": "query",
+    "sla_deadline": 10,
+    "customer_history": 1
+  },
+  {
+    "id": 3,
+    "message": "App crashes",
+    "sentiment": "angry",
+    "urgency": "high",
+    "category": "bug",
+    "sla_deadline": 2,
+    "customer_history": 3
+  }
+]

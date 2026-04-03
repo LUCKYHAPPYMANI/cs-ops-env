@@ -1,0 +1,20 @@
+name: cs-ops-env
+description: Customer support simulation environment
+version: 1.0
+
+observation_space:
+  type: Observation
+
+action_space:
+  type: Action
+
+reward:
+  range: [-1.0, 1.0]
+
+tasks:
+  - name: easy
+    difficulty: easy
+  - name: medium
+    difficulty: medium
+  - name: hard
+    difficulty: hard
