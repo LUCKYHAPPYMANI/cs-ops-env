@@ -1,15 +1,17 @@
 import os
 import random
+import time
 from openai import OpenAI
 from env.environment import CustomerSupportEnv
 from env.models import Action
 from dotenv import load_dotenv
 
+
 # Load environment variables
 load_dotenv()
 
 # Deterministic behavior
-random.seed(42)
+random.seed(time.time())
 
 API_BASE_URL = os.getenv("API_BASE_URL")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
@@ -117,5 +119,9 @@ def main():
         run_task(t)
 
 
+
+
 if __name__ == "__main__":
     main()
+    while True:
+        time.sleep(60)
