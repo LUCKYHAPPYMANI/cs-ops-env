@@ -1,93 +1,117 @@
-import json
 import random
-from .models import *
+from env.models import Observation, Ticket
 
-random.seed(42)
 
 class CustomerSupportEnv:
-
-    def __init__(self, max_steps=15):
-        self.max_steps = max_steps
-        self.reset()
+    def __init__(self):
+        self.tickets = []
+        self.current_index = 0
+        self.done = False
+        self.time_step = 0
 
     def reset(self):
-        with open("data/tickets.json") as f:
-            data = json.load(f)
+        random.seed(42)
 
-        self.tickets = [Ticket(**t) for t in data]
+        self.current_index = 0
+        self.done = False
         self.time_step = 0
-        self.last_action = None
-        return self._get_obs()
+
+        self.tickets = [
+            Ticket(
+                id=1,
+                message="I want a refund",
+                urgency="high",
+                sentiment="angry",
+                sla_deadline=2,
+                resolved=False,
+                category="billing",
+                customer_history=5
+            ),
+            Ticket(
+                id=2,
+                message="Order not delivered",
+                urgency="medium",
+                sentiment="neutral",
+                sla_deadline=3,
+                resolved=False,
+                category="delivery",
+                customer_history=1
+            ),
+            Ticket(
+                id=3,
+                message="App not working",
+                urgency="low",
+                sentiment="angry",
+                sla_deadline=1,
+                resolved=False,
+                category="technical",
+                customer_history=3
+            )
+        ]
+
+        return Observation(
+            current_ticket=self.tickets[self.current_index],
+            queue=self.tickets,
+            time_step=self.time_step,
+            pending_count=len(self.tickets)
+        )
+
+    def step(self, action):
+        ticket = self.tickets[self.current_index]
+
+        reward = 0.0
+
+        # ✅ Reward logic
+        if action.action_type == "escalate" and ticket.urgency == "high":
+            reward += 0.5
+        elif action.action_type == "classify" and "refund" in ticket.message.lower():
+            reward += 0.4
+        elif action.action_type == "respond":
+            reward += 0.3
+        elif action.action_type == "close" and ticket.sla_deadline <= 1:
+            reward += 0.5
+            ticket.resolved = True
+        else:
+            reward -= 0.2
+
+        # update state
+        self.current_index += 1
+        self.time_step += 1
+
+        if self.current_index >= len(self.tickets):
+            self.done = True
+            next_ticket = ticket
+        else:
+            next_ticket = self.tickets[self.current_index]
+
+        obs = Observation(
+            current_ticket=next_ticket,
+            queue=self.tickets,
+            time_step=self.time_step,
+            pending_count=len(self.tickets) - self.current_index
+        )
+
+        # 🔥 FINAL SCORE FIX (ABSOLUTE GUARANTEE)
+        raw_score = float(reward)
+
+        # Normalize into safe range
+        score = 0.5 + (raw_score * 0.4)
+
+        # Clamp strictly between (0,1)
+        if score <= 0:
+            score = 0.01
+        elif score >= 1:
+            score = 0.99
+
+        info = {
+            "score": score
+        }
+
+        return obs, reward, self.done, info
 
     def state(self):
         return {
-            "tickets": [t.dict() for t in self.tickets],
-            "time_step": self.time_step
+            "current_index": self.current_index,
+            "time_step": self.time_step,
+            "done": self.done
         }
-
-    def step(self, action: Action):
-        reward = 0.0
-        done = False
-
-        ticket = next((t for t in self.tickets if t.id == action.ticket_id), None)
-
-        if not ticket:
-            return self._get_obs(), -1.0, False, {}
-
-        # Repeated action penalty
-        if self.last_action == action.action_type:
-            reward -= 0.2
-        self.last_action = action.action_type
-
-        # Classification
-        if action.action_type == "classify":
-            if ticket.category.lower() in (action.content or "").lower():
-                reward += 0.3
-            else:
-                reward -= 0.2
-
-        # Response
-        elif action.action_type == "respond":
-            if action.content and len(action.content) > 15:
-                reward += 0.5
-            else:
-                reward -= 0.3
-
-        # Escalate
-        elif action.action_type == "escalate":
-            if ticket.urgency == "high":
-                reward += 0.4
-            reward -= 0.1  # cost
-
-        # Close
-        elif action.action_type == "close":
-            ticket.resolved = True
-            reward += 0.3
-
-        # SLA + Mood drift
-        ticket.sla_deadline -= 1
-        if ticket.sla_deadline <= 0 and not ticket.resolved:
-            reward -= 0.5
-            ticket.sentiment = "angry"
-
-        # Queue pressure
-        pending = sum(not t.resolved for t in self.tickets)
-        if pending > 3:
-            reward -= 0.2
-
-        self.time_step += 1
-
-        if self.time_step >= self.max_steps or pending == 0:
-            done = True
-
-        return self._get_obs(), reward, done, {}
-
-    def _get_obs(self):
-        current = sorted(self.tickets, key=lambda t: (t.urgency, t.sla_deadline))[0]
-
-        return Observation(
-            queue=self.tickets,
-            current_ticket=current,
-            time_step=self.time_step,
-            pending_count=sum(not t.resolved for t in self.tickets)
-        )
