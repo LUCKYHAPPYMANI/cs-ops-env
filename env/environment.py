@@ -18,7 +18,7 @@ class CustomerSupportEnv:
         self.tickets = [
             Ticket(
                 id=1,
-                message="Refund request",
+                message="Need refund for duplicate payment",
                 sentiment="angry",
                 urgency="high",
                 category="billing",
@@ -28,7 +28,7 @@ class CustomerSupportEnv:
             ),
             Ticket(
                 id=2,
-                message="Order delayed",
+                message="Order delayed by 5 days",
                 sentiment="neutral",
                 urgency="medium",
                 category="delivery",
@@ -38,9 +38,9 @@ class CustomerSupportEnv:
             ),
             Ticket(
                 id=3,
-                message="App not working",
+                message="App crashes on login",
                 sentiment="frustrated",
-                urgency="low",
+                urgency="high",
                 category="technical",
                 sla_deadline=1,
                 customer_history=1,
@@ -56,12 +56,27 @@ class CustomerSupportEnv:
         )
 
     def step(self, action):
-        # 🔥 direct safe score path
-        reward = 0.731
+        ticket = self.tickets[self.current_index]
+
+        if action.action_type == "escalate" and ticket.urgency == "high":
+            reward = 0.90
+        elif action.action_type == "classify":
+            reward = 0.80
+        elif action.action_type == "respond":
+            reward = 0.70
+        elif action.action_type == "close":
+            reward = 0.75
+            ticket.resolved = True
+        else:
+            reward = 0.40
+
+        if reward <= 0:
+            reward = 0.01
+        elif reward >= 1:
+            reward = 0.99
 
         self.current_index += 1
         self.time_step += 1
-
         self.done = self.current_index >= len(self.tickets)
 
         current = None if self.done else self.tickets[self.current_index]
@@ -73,11 +88,7 @@ class CustomerSupportEnv:
             pending_count=max(0, len(self.tickets) - self.current_index),
         )
 
-        info = {
-            "score": 0.731
-        }
-
-        return obs, reward, self.done, info
+        return obs, reward, self.done, {"score": reward}
 
     def state(self):
         return {
