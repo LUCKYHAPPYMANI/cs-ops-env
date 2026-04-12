@@ -1,37 +1,51 @@
-def safe_score(score):
-    # force strictly between (0,1) WITHOUT rounding issues
+print("LOADED REAL graders.py")
+
+
+def strict(score):
     try:
         score = float(score)
-    except:
-        return 0.5
+    except Exception:
+        score = 0.5
 
     if score <= 0:
         return 0.01
-    elif score >= 1:
+    if score >= 1:
         return 0.99
 
-    return score   # ❗ NO ROUNDING
+    return score
 
 
 def grade_easy(pred, true):
     if not true:
-        return 0.5
+        return 0.51
 
-    raw = sum(p == t for p, t in zip(pred, true)) / len(true)
-    return safe_score(raw)
+    correct = sum(1 for p, t in zip(pred, true) if p == t)
+    raw = correct / max(len(true), 1)
+    return strict(raw)
 
 
 def grade_medium(actions):
     if not actions:
-        return 0.5
+        return 0.52
 
-    raw = sum(a.get("handled_before_deadline", 0) for a in actions) / len(actions)
-    return safe_score(raw)
+    handled = sum(
+        1 for a in actions
+        if a.get("handled_before_deadline", False)
+    )
+    raw = handled / max(len(actions), 1)
+    return strict(raw)
 
 
 def grade_hard(trajectory):
     if not trajectory:
-        return 0.5
+        return 0.53
 
-    raw = sum(step.get("reward", 0) for step in trajectory) / len(trajectory)
-    return safe_score(raw)
+    rewards = []
+    for step in trajectory:
+        try:
+            rewards.append(float(step.get("reward", 0.5)))
+        except Exception:
+            rewards.append(0.5)
+
+    raw = sum(rewards) / max(len(rewards), 1)
+    return strict(raw)
